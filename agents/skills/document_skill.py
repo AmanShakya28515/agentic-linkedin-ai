@@ -1,6 +1,8 @@
 import os
 import uuid
+import requests
 import chromadb
+from chromadb import Documents, EmbeddingFunction, Embeddings
 from pypdf import PdfReader
 import openpyxl
 
@@ -8,6 +10,7 @@ import openpyxl
 # Phase 16 — Document Upload to RAG
 # Supports: PDF, TXT, XLSX, and plain text input ("remember this:")
 # Extracts text, splits into chunks, stores in ChromaDB.
+# Uses Gemini embedding API instead of local ONNX model to avoid OOM on small servers.
 
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "chroma_db")
 
@@ -15,11 +18,31 @@ _client = None
 _docs_collection = None
 
 
+class GeminiEmbeddingFunction(EmbeddingFunction):
+    """Calls Gemini embedding API — no local model, no RAM overhead."""
+    def __call__(self, input: Documents) -> Embeddings:
+        api_key = os.environ.get("GEMINI_API_KEY", "")
+        embeddings = []
+        for text in input:
+            resp = requests.post(
+                "https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent",
+                params={"key": api_key},
+                json={"model": "models/text-embedding-004", "content": {"parts": [{"text": text}]}},
+                timeout=30,
+            )
+            resp.raise_for_status()
+            embeddings.append(resp.json()["embedding"]["values"])
+        return embeddings
+
+
 def _get_collection():
     global _client, _docs_collection
     if _docs_collection is None:
         _client = chromadb.PersistentClient(path=DB_PATH)
-        _docs_collection = _client.get_or_create_collection(name="uploaded_documents")
+        _docs_collection = _client.get_or_create_collection(
+            name="uploaded_documents_v2",
+            embedding_function=GeminiEmbeddingFunction(),
+        )
     return _docs_collection
 
 
