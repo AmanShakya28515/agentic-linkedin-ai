@@ -11,8 +11,16 @@ import openpyxl
 
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "chroma_db")
 
-client = chromadb.PersistentClient(path=DB_PATH)
-docs_collection = client.get_or_create_collection(name="uploaded_documents")
+_client = None
+_docs_collection = None
+
+
+def _get_collection():
+    global _client, _docs_collection
+    if _docs_collection is None:
+        _client = chromadb.PersistentClient(path=DB_PATH)
+        _docs_collection = _client.get_or_create_collection(name="uploaded_documents")
+    return _docs_collection
 
 
 # ── Text extraction per file type ─────────────────────────────────────────────
@@ -80,9 +88,10 @@ def store_plain_text(text: str, label: str = "user_note") -> int:
 
 def _store_text(text: str, filename: str) -> int:
     chunks = chunk_text(text)
+    collection = _get_collection()
     for i, chunk in enumerate(chunks):
         doc_id = f"doc_{uuid.uuid4().hex[:8]}_{i}"
-        docs_collection.add(
+        collection.add(
             documents=[chunk],
             metadatas=[{"filename": filename, "chunk": i}],
             ids=[doc_id],
@@ -93,11 +102,12 @@ def _store_text(text: str, filename: str) -> int:
 # ── Retrieve ──────────────────────────────────────────────────────────────────
 
 def retrieve_from_documents(query: str, n_results: int = 2) -> str:
-    total = len(docs_collection.get()["ids"])
+    collection = _get_collection()
+    total = len(collection.get()["ids"])
     if total == 0:
         return ""
 
-    results = docs_collection.query(
+    results = collection.query(
         query_texts=[query],
         n_results=min(n_results, total),
     )
@@ -116,5 +126,5 @@ def retrieve_from_documents(query: str, n_results: int = 2) -> str:
 
 
 def list_documents() -> list:
-    all_meta = docs_collection.get()["metadatas"]
+    all_meta = _get_collection().get()["metadatas"]
     return list({m["filename"] for m in all_meta if m})
