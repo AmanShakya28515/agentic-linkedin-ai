@@ -1,0 +1,56 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pyc
+*.pdb
+
+# Virtual environment
+env/
+venv/
+.venv/
+ENV/
+
+# Environment variables (contains API keys - never commit)
+.env
+.env.local
+.env.*.local
+
+# Django
+db.sqlite3
+*.sqlite3
+
+# ChromaDB vector store
+chroma_db/
+
+# User data / memory files
+user_memory.json
+
+# Migrations (optional - uncomment if you want to exclude)
+# */migrations/*.py
+# !*/migrations/__init__.py
+
+# IDE
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+logs/
+
+# Coverage
+.coverage
+htmlcov/
+
+# Distribution
+dist/
+build/
+*.egg-info/

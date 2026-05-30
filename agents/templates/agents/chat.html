@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>LinkedIn Post Generator</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f3f4f6;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 720px;
+      height: 90vh;
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.1);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── Header ── */
+    .header {
+      padding: 18px 24px;
+      background: #0a66c2;
+      color: #fff;
+      font-size: 1rem;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+    }
+    .header span { opacity: 0.8; font-size: 0.8rem; font-weight: 400; margin-left: 8px; }
+
+    /* ── Chat window ── */
+    .chat-window {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    /* ── Bubbles ── */
+    .bubble {
+      max-width: 80%;
+      padding: 12px 16px;
+      border-radius: 16px;
+      font-size: 0.9rem;
+      line-height: 1.6;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .bubble.system {
+      background: #f0f0f0;
+      color: #333;
+      align-self: flex-start;
+      border-bottom-left-radius: 4px;
+    }
+    .bubble.user {
+      background: #0a66c2;
+      color: #fff;
+      align-self: flex-end;
+      border-bottom-right-radius: 4px;
+    }
+    .bubble.draft {
+      background: #f0f7ff;
+      border: 1px solid #c0d8f5;
+      color: #1a1a2e;
+      align-self: flex-start;
+      max-width: 95%;
+      border-bottom-left-radius: 4px;
+    }
+    .bubble.final {
+      background: #f0fff4;
+      border: 1px solid #a3d9a5;
+      color: #1a1a2e;
+      align-self: flex-start;
+      max-width: 95%;
+      border-bottom-left-radius: 4px;
+    }
+
+    /* ── Typing indicator ── */
+    .typing {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding: 10px 14px;
+      background: #f0f0f0;
+      border-radius: 16px;
+      border-bottom-left-radius: 4px;
+      align-self: flex-start;
+      width: fit-content;
+    }
+    .typing span {
+      width: 8px; height: 8px;
+      background: #999;
+      border-radius: 50%;
+      animation: bounce 1.2s infinite;
+    }
+    .typing span:nth-child(2) { animation-delay: 0.2s; }
+    .typing span:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes bounce {
+      0%, 60%, 100% { transform: translateY(0); }
+      30% { transform: translateY(-6px); }
+    }
+
+    /* ── Copy button ── */
+    .copy-btn {
+      margin-top: 8px;
+      padding: 6px 14px;
+      background: #0a66c2;
+      color: #fff;
+      border: none;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      cursor: pointer;
+      align-self: flex-start;
+    }
+    .copy-btn:hover { background: #084fa1; }
+
+    /* ── Approval row ── */
+    .approval-row {
+      display: flex;
+      gap: 10px;
+      align-self: flex-start;
+      margin-top: 4px;
+    }
+    .approve-btn {
+      padding: 8px 20px;
+      background: #16a34a;
+      color: #fff;
+      border: none;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      cursor: pointer;
+    }
+    .approve-btn:hover { background: #15803d; }
+    .reject-btn {
+      padding: 8px 20px;
+      background: #dc2626;
+      color: #fff;
+      border: none;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      cursor: pointer;
+    }
+    .reject-btn:hover { background: #b91c1c; }
+
+    /* ── New Topic button (Phase 3 fix: stale state bug) ── */
+    .new-topic-btn {
+      padding: 8px 20px;
+      background: #6b7280;
+      color: #fff;
+      border: none;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      cursor: pointer;
+    }
+    .new-topic-btn:hover { background: #4b5563; }
+
+    /* ── Topic divider shown when user starts a new topic ── */
+    .divider {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: #9ca3af;
+      font-size: 0.75rem;
+      margin: 8px 0;
+    }
+    .divider::before, .divider::after {
+      content: "";
+      flex: 1;
+      height: 1px;
+      background: #e5e7eb;
+    }
+
+    /* ── Input bar ── */
+    .input-bar {
+      padding: 16px 20px;
+      border-top: 1px solid #eee;
+      display: flex;
+      gap: 10px;
+    }
+    .input-bar input {
+      flex: 1;
+      padding: 10px 16px;
+      border: 1px solid #ddd;
+      border-radius: 24px;
+      font-size: 0.9rem;
+      outline: none;
+    }
+    .input-bar input:focus { border-color: #0a66c2; }
+    .input-bar button {
+      padding: 10px 20px;
+      background: #0a66c2;
+      color: #fff;
+      border: none;
+      border-radius: 24px;
+      font-size: 0.9rem;
+      cursor: pointer;
+    }
+    .input-bar button:disabled { background: #93b8e0; cursor: not-allowed; }
+    .input-bar button:hover:not(:disabled) { background: #084fa1; }
+
+    /* ── Upload button ── */
+    .upload-btn {
+      padding: 10px 14px;
+      background: #f3f4f6;
+      color: #374151;
+      border: 1px solid #ddd;
+      border-radius: 24px;
+      font-size: 0.85rem;
+      cursor: pointer;
+    }
+    .upload-btn:hover { background: #e5e7eb; }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <div class="header">
+    LinkedIn Post Generator
+    <span>powered by LangGraph + Gemini</span>
+  </div>
+
+  <div class="chat-window" id="chatWindow">
+    <div class="bubble system">
+      👋 Hi! Enter a topic below and I'll generate a LinkedIn post for you — step by step.
+    </div>
+  </div>
+
+  <div class="input-bar">
+    <!-- Phase 16 — hidden file input triggered by upload button -->
+    <input type="file" id="fileInput" accept=".pdf,.txt,.xlsx,.xls" style="display:none" onchange="handleUpload(this)" />
+    <button class="upload-btn" onclick="document.getElementById('fileInput').click()">📎 Upload File</button>
+    <input type="text" id="userInput" placeholder="Enter a topic e.g. AI in hiring..." />
+    <button id="sendBtn" onclick="handleSend()">Send</button>
+  </div>
+
+</div>
+
+<script>
+  // ============================================================
+  // PHASE 3 JavaScript — manual buttons (Approve / Request Changes / New Topic)
+  // Each button called a specific endpoint (/start/ or /resume/)
+  // User had to explicitly tell the system what they wanted to do.
+  //
+  // let threadId = null;
+  // let waitingForApproval = false;
+  // function handleSend() {
+  //   if (waitingForApproval) { submitFeedback(false, text); }
+  //   else { startWorkflow(text); }
+  // }
+  // async function startWorkflow(topic) { fetch("/api/agents/start/", ...) }
+  // async function submitFeedback(approved, feedback) { fetch("/api/agents/resume/", ...) }
+  // ============================================================
+
+  // ============================================================
+  // PHASE 4 — Orchestrator Agent
+  // Single input handles everything. No buttons needed.
+  // Every message goes to /api/agents/message/
+  // Orchestrator skill classifies intent and routes automatically.
+  // ============================================================
+
+  let threadId = null;  // null = no active workflow
+
+  const chatWindow = document.getElementById("chatWindow");
+  const userInput  = document.getElementById("userInput");
+  const sendBtn    = document.getElementById("sendBtn");
+
+  userInput.addEventListener("keydown", e => {
+    if (e.key === "Enter") handleSend();
+  });
+
+  function handleSend() {
+    const text = userInput.value.trim();
+    if (!text) return;
+    userInput.value = "";
+    sendMessage(text);
+  }
+
+  // Phase 4/5 — single sendMessage calling /message/ for everything
+  // async function sendMessage(text) {
+  //   addBubble("user", text);
+  //   sendBtn.disabled = true;
+  //   if (!threadId) {
+  //     addBubble("system", "🔍 Researching your topic...");
+  //     addBubble("system", "🪝 Generating hooks...");
+  //     addBubble("system", "✍️ Writing your draft...");
+  //   } else {
+  //     addBubble("system", "🤖 Understanding your request...");
+  //   }
+  //   const typing = addTyping();
+  //   try {
+  //     const res = await fetch("/api/agents/message/", {
+  //       method: "POST",
+  //       headers: { "Content-Type": "application/json" },
+  //       body: JSON.stringify({ message: text, thread_id: threadId }),
+  //     });
+  //     const data = await res.json();
+  //     typing.remove();
+  //     ...handle response...
+  //   } catch (err) { ... }
+  // }
+
+  // ── Phase 6 — Streaming ──────────────────────────────────────
+  // New topic → /message/stream/ (SSE, tokens appear word by word)
+  // Feedback/approval → /message/ (existing JSON endpoint)
+  // Phase 15 — Campaign → /campaign/ if message contains "campaign" keyword
+  async function sendMessage(text) {
+    addBubble("user", text);
+    sendBtn.disabled = true;
+
+    if (isRememberRequest(text)) {
+      await sendRemember(text);        // Phase 16: "remember this:" → save to knowledge base
+    } else if (isCampaignRequest(text)) {
+      await sendCampaign(text);        // Phase 15: campaign request
+    } else if (!threadId) {
+      await sendMessageStream(text);   // Phase 6: new topic uses streaming
+    } else {
+      await sendMessageRegular(text);  // Phase 4: feedback/approval use regular endpoint
+    }
+  }
+
+  function isRememberRequest(text) {
+    return text.toLowerCase().startsWith("remember this:");
+  }
+
+  // ── Phase 16: Remember This ──────────────────────────────────
+  async function sendRemember(text) {
+    const content = text.slice("remember this:".length).trim();
+    if (!content) {
+      addBubble("system", "❌ Nothing to remember. Type: remember this: [your text]");
+      sendBtn.disabled = false;
+      return;
+    }
+
+    const typing = addTyping();
+    try {
+      const res = await fetch("/api/agents/remember/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: content }),
+      });
+      const data = await res.json();
+      typing.remove();
+      if (!res.ok) {
+        addBubble("system", "❌ " + (data.error || "Failed to remember."));
+      } else {
+        addBubble("system", data.message);
+        addBubble("system", "📚 This info will now be used when writing your posts.");
+      }
+    } catch (err) {
+      typing.remove();
+      addBubble("system", "❌ " + err.message);
+    }
+    sendBtn.disabled = false;
+  }
+
+  function isCampaignRequest(text) {
+    const lower = text.toLowerCase();
+    return lower.includes("campaign") || lower.includes("content plan") || lower.includes("day plan");
+  }
+
+  // ── Phase 15: Campaign ───────────────────────────────────────
+  async function sendCampaign(text) {
+    addBubble("system", "📅 Planning your content campaign...");
+    const typing = addTyping();
+    sendBtn.disabled = true;
+
+    // Extract number of days from message (default 5)
+    const match = text.match(/(\d+)\s*-?\s*day/i);
+    const numDays = match ? parseInt(match[1]) : 5;
+
+    // Extract topic — remove campaign-related words
+    const topic = text.replace(/create|generate|write|make|build|(\d+)-?\s*day|campaign|content plan|day plan/gi, "").trim() || text;
+
+    try {
+      const res = await fetch("/api/agents/campaign/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ topic, num_days: numDays }),
+      });
+      const data = await res.json();
+      typing.remove();
+
+      if (!res.ok) {
+        addBubble("system", "❌ Error: " + (data.error || "Something went wrong."));
+        sendBtn.disabled = false;
+        return;
+      }
+
+      addBubble("system", `✅ Your ${numDays}-day LinkedIn content campaign is ready:`);
+
+      data.posts.forEach(post => {
+        // Day label
+        const label = document.createElement("div");
+        label.className = "divider";
+        label.textContent = `Day ${post.day} — ${post.post_type}`;
+        chatWindow.appendChild(label);
+
+        // Post content
+        addBubble("final", post.content);
+
+        // Copy button for each post
+        const copyBtn = document.createElement("button");
+        copyBtn.className = "copy-btn";
+        copyBtn.textContent = "📋 Copy Day " + post.day;
+        copyBtn.onclick = () => {
+          navigator.clipboard.writeText(post.content);
+          copyBtn.textContent = "✅ Copied!";
+          setTimeout(() => copyBtn.textContent = "📋 Copy Day " + post.day, 2000);
+        };
+        chatWindow.appendChild(copyBtn);
+        scrollToBottom();
+      });
+
+      addBubble("system", "Campaign complete! Type a new topic to generate a single post.");
+      threadId = null;
+
+    } catch (err) {
+      typing.remove();
+      addBubble("system", "❌ " + err.message);
+    }
+
+    sendBtn.disabled = false;
+  }
+
+  // ── Phase 6: SSE streaming for new topics ───────────────────
+  async function sendMessageStream(text) {
+    const typing = addTyping();
+    let draftBubble = null;
+    let fullDraft = "";
+
+    try {
+      const res = await fetch("/api/agents/message/stream/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: text }),
+      });
+
+      typing.remove();
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value);
+        const lines = chunk.split("\n");
+
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          const data = JSON.parse(line.slice(6));
+
+          if (data.type === "status") {
+            addBubble("system", data.text);
+
+          } else if (data.type === "token") {
+            // First token — create the draft bubble
+            if (!draftBubble) {
+              addBubble("system", "✅ Draft ready! Here it is:");
+              draftBubble = addBubble("draft", "");
+            }
+            fullDraft += data.text;
+            draftBubble.textContent = fullDraft;
+            scrollToBottom();
+
+          } else if (data.type === "done") {
+            threadId = data.thread_id;
+            addBubble("system", "Just type what you think — approve it, give feedback, or ask for a new topic.");
+            userInput.placeholder = "e.g. looks good / make it shorter / write about Ronaldo instead...";
+          }
+        }
+      }
+
+    } catch (err) {
+      addBubble("system", "❌ " + err.message);
+    }
+
+    sendBtn.disabled = false;
+  }
+
+  // ── Phase 4: regular JSON endpoint for feedback/approval ────
+  async function sendMessageRegular(text) {
+    addBubble("system", "🤖 Understanding your request...");
+    const typing = addTyping();
+
+    try {
+      const res = await fetch("/api/agents/message/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: text, thread_id: threadId }),
+      });
+      const data = await res.json();
+      typing.remove();
+
+      if (!res.ok) {
+        addBubble("system", "❌ Error: " + (data.error || "Something went wrong."));
+        sendBtn.disabled = false;
+        return;
+      }
+
+      if (data.intent === "feedback") {
+        addBubble("system", "✍️ Rewriting based on your feedback...");
+      } else if (data.intent === "approved") {
+        addBubble("system", "⚙️ Finalizing your post...");
+      }
+
+      threadId = data.thread_id;
+
+      if (data.status === "waiting_for_human") {
+        addBubble("system", "✅ Draft ready! Here it is:");
+        addBubble("draft", data.draft);
+        addBubble("system", "Just type what you think — approve it, give feedback, or ask for a new topic.");
+        userInput.placeholder = "e.g. looks good / make it shorter / write about Ronaldo instead...";
+
+      } else if (data.status === "completed") {
+        addBubble("system", "✅ Your final LinkedIn post is ready:");
+        addBubble("final", data.final_post);
+
+        const copyBtn = document.createElement("button");
+        copyBtn.className = "copy-btn";
+        copyBtn.textContent = "📋 Copy to Clipboard";
+        copyBtn.onclick = () => {
+          navigator.clipboard.writeText(data.final_post);
+          copyBtn.textContent = "✅ Copied!";
+          setTimeout(() => copyBtn.textContent = "📋 Copy to Clipboard", 2000);
+        };
+        chatWindow.appendChild(copyBtn);
+
+        addBubble("system", "Want another post? Just type a new topic.");
+        threadId = null;
+        userInput.placeholder = "Enter a topic e.g. AI in hiring...";
+      }
+
+    } catch (err) {
+      typing.remove();
+      addBubble("system", "❌ " + err.message);
+    }
+
+    sendBtn.disabled = false;
+  }
+
+  // ── Helpers ─────────────────────────────────────────────────
+  function addBubble(type, text) {
+    const div = document.createElement("div");
+    div.className = `bubble ${type}`;
+    div.textContent = text;
+    chatWindow.appendChild(div);
+    scrollToBottom();
+    return div;
+  }
+
+  function addTyping() {
+    const div = document.createElement("div");
+    div.className = "typing";
+    div.innerHTML = "<span></span><span></span><span></span>";
+    chatWindow.appendChild(div);
+    scrollToBottom();
+    return div;
+  }
+
+  // Phase 3 — Old addApprovalButtons (only had Approve + Request Changes)
+  // function addApprovalButtons() {
+  //   const row = document.createElement("div");
+  //   row.className = "approval-row";
+  //   row.id = "approvalRow";
+  //   const approveBtn = document.createElement("button");
+  //   approveBtn.className = "approve-btn";
+  //   approveBtn.textContent = "✅ Approve";
+  //   approveBtn.onclick = () => submitFeedback(true);
+  //   const rejectBtn = document.createElement("button");
+  //   rejectBtn.className = "reject-btn";
+  //   rejectBtn.textContent = "❌ Request Changes";
+  //   rejectBtn.onclick = () => {
+  //     removeApprovalButtons();
+  //     addBubble("system", "Type your feedback below and hit Send.");
+  //   };
+  //   row.appendChild(approveBtn);
+  //   row.appendChild(rejectBtn);
+  //   chatWindow.appendChild(row);
+  //   scrollToBottom();
+  // }
+
+  // Phase 3 fix — addApprovalButtons (now removed in Phase 4)
+  // Phase 4: no buttons — orchestrator classifies intent from plain text
+  // function addApprovalButtons() {
+  //   const row = document.createElement("div");
+  //   row.className = "approval-row";
+  //   row.id = "approvalRow";
+  //   const approveBtn = document.createElement("button");
+  //   approveBtn.className = "approve-btn";
+  //   approveBtn.textContent = "✅ Approve";
+  //   approveBtn.onclick = () => submitFeedback(true);
+  //   const rejectBtn = document.createElement("button");
+  //   rejectBtn.className = "reject-btn";
+  //   rejectBtn.textContent = "❌ Request Changes";
+  //   rejectBtn.onclick = () => {
+  //     removeApprovalButtons();
+  //     addBubble("system", "Type your feedback below and hit Send.");
+  //   };
+  //   const newTopicBtn = document.createElement("button");
+  //   newTopicBtn.className = "new-topic-btn";
+  //   newTopicBtn.textContent = "🔄 Start New Topic";
+  //   newTopicBtn.onclick = () => startNewTopic();
+  //   row.appendChild(approveBtn);
+  //   row.appendChild(rejectBtn);
+  //   row.appendChild(newTopicBtn);
+  //   chatWindow.appendChild(row);
+  //   scrollToBottom();
+  // }
+
+  // Phase 3 fix — startNewTopic (now removed in Phase 4)
+  // Phase 4: typing a new topic in the input box resets automatically via orchestrator
+  // function startNewTopic() {
+  //   removeApprovalButtons();
+  //   waitingForApproval = false;
+  //   threadId = null;
+  //   sendBtn.disabled = false;
+  //   userInput.placeholder = "Enter a topic e.g. AI in hiring...";
+  //   const divider = document.createElement("div");
+  //   divider.className = "divider";
+  //   divider.textContent = "New Topic";
+  //   chatWindow.appendChild(divider);
+  //   addBubble("system", "🔄 Starting fresh — enter your new topic below.");
+  //   scrollToBottom();
+  // }
+
+  // Phase 3 fix — removeApprovalButtons (no longer needed in Phase 4)
+  // function removeApprovalButtons() {
+  //   const row = document.getElementById("approvalRow");
+  //   if (row) row.remove();
+  // }
+
+  // ── Phase 16: PDF Upload ─────────────────────────────────────
+  async function handleUpload(input) {
+    const file = input.files[0];
+    if (!file) return;
+
+    addBubble("system", `📎 Uploading "${file.name}"...`);
+    const typing = addTyping();
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const res = await fetch("/api/agents/upload/", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json();
+      typing.remove();
+
+      if (!res.ok) {
+        addBubble("system", "❌ Upload failed: " + (data.error || "Unknown error"));
+      } else {
+        addBubble("system", data.message);
+        addBubble("system", "📚 Document added to knowledge base. Your posts will now use this content.");
+      }
+    } catch (err) {
+      typing.remove();
+      addBubble("system", "❌ " + err.message);
+    }
+
+    // Reset file input so same file can be re-uploaded if needed
+    input.value = "";
+  }
+
+  function scrollToBottom() {
+    chatWindow.scrollTop = chatWindow.scrollHeight;
+  }
+</script>
+</body>
+</html>
