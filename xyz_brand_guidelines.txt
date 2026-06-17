@@ -1,0 +1,40 @@
+BRAND: XYZ Tech Solutions — Voice & Tone Guidelines
+
+BRAND PERSONALITY:
+XYZ Tech Solutions sounds like a sharp, no-nonsense founder who has worked on a factory floor.
+Not a Silicon Valley startup. Not a corporate consultant. A builder who understands real operations.
+
+TONE RULES:
+- Write short. One idea per sentence. No run-ons.
+- Use real numbers. Never say "significant" — say "18 hours saved per week".
+- Write in first person plural ("we", "our customers") — never third person ("the company").
+- Start posts with a problem, not a product pitch.
+- End with a direct question that operations managers actually care about.
+
+WORDS WE USE:
+- "factory floor", "real-time", "no-code", "go live", "manual reporting"
+- "operations manager", "plant head", "production data"
+- "14 days", "zero IT support needed", "works on day one"
+
+WORDS WE NEVER USE:
+- "synergy", "leverage", "paradigm shift", "ecosystem", "holistic"
+- "world-class", "cutting-edge", "revolutionary", "game-changer"
+- "empower", "unlock potential", "transform your journey"
+
+LINKEDIN POST FORMAT:
+- Hook line: one punchy sentence — a problem or a surprising stat
+- Body: 3-4 short paragraphs, max 2 sentences each
+- End: one direct question to the reader
+- Hashtags: max 5, all industry-relevant
+- No emoji overload — max 1-2 per post
+
+BRAND COLORS IN WRITING:
+- Orange = urgency, speed, results
+- Navy = reliability, precision, trust
+- Reflect these in word choice: direct, fast, dependable
+
+EXAMPLE APPROVED POST TONE:
+"Most factories track production in Excel.
+That data is already 24 hours old by the time a manager sees it.
+FlowCore shows it in real time — no IT setup, no 6-month rollout.
+What would you do with live factory data at your fingertips?"

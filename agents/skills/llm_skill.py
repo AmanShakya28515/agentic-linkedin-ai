@@ -2,6 +2,7 @@ import os
 import json
 from dotenv import load_dotenv
 from openai import OpenAI
+from langsmith import traceable   # Phase 20 — observability
 
 load_dotenv()
 
@@ -21,6 +22,8 @@ client = OpenAI(
 MODEL = "llama-3.3-70b-versatile"
 
 
+# Phase 20 — @traceable sends this call to LangSmith with prompt, response, and token count
+@traceable(name="llm_skill", run_type="llm")
 def llm_skill(prompt: str) -> str:
     """
     Base skill — sends a prompt to the LLM and returns the response.
@@ -37,6 +40,8 @@ def llm_skill(prompt: str) -> str:
 # Phase 8 — Structured Output: LLM returns JSON, validated into a Pydantic model
 # Before: skills manually parsed text ("DECISION: approved\n...") — fragile
 # After:  LLM guaranteed to return JSON → Pydantic validates → typed object, no parsing
+# Phase 20 — @traceable tracks structured calls separately so you can filter by type
+@traceable(name="llm_skill_structured", run_type="llm")
 def llm_skill_structured(prompt: str, schema_class):
     response = client.chat.completions.create(
         model=MODEL,
@@ -48,6 +53,8 @@ def llm_skill_structured(prompt: str, schema_class):
 
 
 # Phase 6 — Streaming: yields tokens one by one instead of waiting for full response
+# Phase 20 — streaming traces appear in LangSmith as a single run when complete
+@traceable(name="llm_skill_stream", run_type="llm")
 def llm_skill_stream(prompt: str):
     stream = client.chat.completions.create(
         model=MODEL,

@@ -223,6 +223,43 @@
       cursor: pointer;
     }
     .upload-btn:hover { background: #e5e7eb; }
+
+    /* ── Phase 18: Persona selector bar ── */
+    .persona-bar {
+      padding: 8px 20px;
+      border-top: 1px solid #f0f0f0;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: #fafafa;
+      font-size: 0.78rem;
+      color: #6b7280;
+    }
+    .persona-select {
+      padding: 5px 10px;
+      border: 1px solid #ddd;
+      border-radius: 20px;
+      font-size: 0.78rem;
+      background: #fff;
+      color: #374151;
+      cursor: pointer;
+      outline: none;
+    }
+    .persona-select:focus { border-color: #0a66c2; }
+
+    /* ── Phase 17: Namespace selector ── */
+    .doc-type-select {
+      padding: 8px 10px;
+      border: 1px solid #ddd;
+      border-radius: 20px;
+      font-size: 0.78rem;
+      background: #f9fafb;
+      color: #374151;
+      cursor: pointer;
+      outline: none;
+      max-width: 110px;
+    }
+    .doc-type-select:focus { border-color: #0a66c2; }
   </style>
 </head>
 <body>
@@ -239,10 +276,30 @@
     </div>
   </div>
 
+  <!-- Phase 18 — Persona selector: who is writing this post? -->
+  <div class="persona-bar">
+    ✍️ Writing as:
+    <select id="personaSelect" class="persona-select">
+      <option value="default">Default Creator</option>
+      <option value="ceo">CEO / Co-founder</option>
+      <option value="developer">Developer / Engineer</option>
+      <option value="sales">Sales Manager</option>
+      <option value="hr">HR / People Lead</option>
+    </select>
+  </div>
+
   <div class="input-bar">
     <!-- Phase 16 — hidden file input triggered by upload button -->
-    <input type="file" id="fileInput" accept=".pdf,.txt,.xlsx,.xls" style="display:none" onchange="handleUpload(this)" />
-    <button class="upload-btn" onclick="document.getElementById('fileInput').click()">📎 Upload File</button>
+    <!-- Phase 17 — doc_type select routes the file into the right namespace -->
+    <input type="file" id="fileInput" accept=".pdf,.txt,.csv,.xlsx,.xls" style="display:none" onchange="handleUpload(this)" />
+    <button class="upload-btn" onclick="document.getElementById('fileInput').click()" title="Upload org document">📎</button>
+    <select id="docTypeSelect" class="doc-type-select" title="Document namespace">
+      <option value="company_profile">Company</option>
+      <option value="products">Products</option>
+      <option value="brand_guidelines">Brand</option>
+      <option value="audience">Audience</option>
+      <option value="campaigns">Campaigns</option>
+    </select>
     <input type="text" id="userInput" placeholder="Enter a topic e.g. AI in hiring..." />
     <button id="sendBtn" onclick="handleSend()">Send</button>
   </div>
@@ -332,25 +389,42 @@
     }
   }
 
+  // Phase 16: "remember this: ..."
+  // Phase 17: also handles "remember this as [type]: ..."
   function isRememberRequest(text) {
-    return text.toLowerCase().startsWith("remember this:");
+    return text.toLowerCase().startsWith("remember this");
   }
 
-  // ── Phase 16: Remember This ──────────────────────────────────
+  // ── Phase 16/17: Remember This ──────────────────────────────
   async function sendRemember(text) {
-    const content = text.slice("remember this:".length).trim();
+    let docType = "company_profile";
+    let content = "";
+
+    // Phase 17 — "remember this as products: Our CRM does X"
+    const asMatch = text.match(/^remember this as (\w+):\s*(.+)/is);
+    if (asMatch) {
+      const requested = asMatch[1].toLowerCase();
+      const valid = ["company_profile", "products", "brand_guidelines", "audience", "campaigns"];
+      docType = valid.includes(requested) ? requested : "company_profile";
+      content = asMatch[2].trim();
+    } else {
+      // Phase 16 — "remember this: ..."
+      content = text.slice("remember this:".length).trim();
+    }
+
     if (!content) {
-      addBubble("system", "❌ Nothing to remember. Type: remember this: [your text]");
+      addBubble("system", "❌ Nothing to remember.\nTry:\n• remember this: [text]\n• remember this as products: [text]\n• remember this as brand_guidelines: [text]");
       sendBtn.disabled = false;
       return;
     }
 
+    const label = docType.replace(/_/g, " ");
     const typing = addTyping();
     try {
       const res = await fetch("/api/agents/remember/", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: content }),
+        body: JSON.stringify({ text: content, doc_type: docType }),
       });
       const data = await res.json();
       typing.remove();
@@ -358,7 +432,7 @@
         addBubble("system", "❌ " + (data.error || "Failed to remember."));
       } else {
         addBubble("system", data.message);
-        addBubble("system", "📚 This info will now be used when writing your posts.");
+        addBubble("system", `📚 Stored in [${label}] namespace. AI will use this for relevant posts.`);
       }
     } catch (err) {
       typing.remove();
@@ -442,11 +516,13 @@
     let draftBubble = null;
     let fullDraft = "";
 
+    const persona = document.getElementById("personaSelect").value;  // Phase 18
+
     try {
       const res = await fetch("/api/agents/message/stream/", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text }),
+        body: JSON.stringify({ message: text, persona }),
       });
 
       typing.remove();
@@ -478,6 +554,17 @@
             draftBubble.textContent = fullDraft;
             scrollToBottom();
 
+          } else if (data.type === "corrected_draft") {
+            // Phase 19 — brand enforcer rewrote the draft; replace streamed version
+            fullDraft = data.text;
+            if (draftBubble) {
+              draftBubble.textContent = fullDraft;
+            } else {
+              addBubble("system", "✅ Brand-compliant draft:");
+              draftBubble = addBubble("draft", fullDraft);
+            }
+            scrollToBottom();
+
           } else if (data.type === "done") {
             threadId = data.thread_id;
             addBubble("system", "Just type what you think — approve it, give feedback, or ask for a new topic.");
@@ -498,11 +585,13 @@
     addBubble("system", "🤖 Understanding your request...");
     const typing = addTyping();
 
+    const persona = document.getElementById("personaSelect").value;  // Phase 18
+
     try {
       const res = await fetch("/api/agents/message/", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text, thread_id: threadId }),
+        body: JSON.stringify({ message: text, thread_id: threadId, persona }),
       });
       const data = await res.json();
       typing.remove();
@@ -645,16 +734,22 @@
   //   if (row) row.remove();
   // }
 
-  // ── Phase 16: PDF Upload ─────────────────────────────────────
+  // ── Phase 16/17: PDF Upload ──────────────────────────────────
   async function handleUpload(input) {
     const file = input.files[0];
     if (!file) return;
 
-    addBubble("system", `📎 Uploading "${file.name}"...`);
+    // Phase 17 — read selected namespace from the dropdown
+    const docTypeSelect = document.getElementById("docTypeSelect");
+    const docType = docTypeSelect.value;
+    const docLabel = docTypeSelect.options[docTypeSelect.selectedIndex].text;
+
+    addBubble("system", `📎 Uploading "${file.name}" → [${docLabel}]...`);
     const typing = addTyping();
 
     const formData = new FormData();
     formData.append("file", file);
+    formData.append("doc_type", docType);  // Phase 17 — pass namespace
 
     try {
       const res = await fetch("/api/agents/upload/", {
@@ -668,7 +763,7 @@
         addBubble("system", "❌ Upload failed: " + (data.error || "Unknown error"));
       } else {
         addBubble("system", data.message);
-        addBubble("system", "📚 Document added to knowledge base. Your posts will now use this content.");
+        addBubble("system", `📚 Stored in [${docLabel}] namespace. AI will now use this for relevant posts.`);
       }
     } catch (err) {
       typing.remove();

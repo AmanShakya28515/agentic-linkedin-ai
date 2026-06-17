@@ -1,0 +1,33 @@
+COMPANY: XYZ Tech Solutions
+
+WHAT WE DO:
+XYZ Tech Solutions builds AI-powered workflow automation tools for mid-size manufacturing companies.
+Our flagship product is called FlowCore — a no-code platform that connects factory floor data to business dashboards in real time.
+
+FOUNDED: 2019, by Rohan Mehta and Priya Sharma in Pune, India.
+
+KEY NUMBERS:
+- 3,200+ factories use FlowCore globally
+- Average customer saves 18 hours per week on manual reporting
+- 94% customer retention rate in 2024
+- Team of 87 people across Pune, Dubai, and Toronto
+
+PRODUCTS:
+1. FlowCore — no-code automation platform for factories
+2. ShiftPulse — real-time worker productivity tracker
+3. DataBridge — API connector between legacy machinery and modern cloud tools
+
+BRAND VALUES:
+- Simplicity over complexity: we build tools that factory managers can use without IT support
+- Honest data: we never show vanity metrics — only numbers that drive real decisions
+- Speed to value: customers go live in under 14 days, guaranteed
+
+BRAND TONE:
+- Direct and confident, never corporate
+- Use real numbers and specific examples, not vague claims
+- Write like a founder talking to another founder
+- Avoid buzzwords like "synergy", "leverage", "paradigm shift"
+
+TARGET AUDIENCE:
+Operations managers and plant heads at manufacturing companies with 200-2000 employees.
+They are frustrated with Excel-based reporting and expensive ERP systems that take 6 months to implement.

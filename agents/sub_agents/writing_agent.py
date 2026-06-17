@@ -13,6 +13,7 @@ class WritingAgentState(TypedDict):
     plan: dict           # Phase 13: post_type, angle, tone, hook_style
     review_feedback: str
     human_feedback: str
+    persona: str         # Phase 18: CEO / developer / sales / hr / default
     draft: str
 
 
@@ -24,6 +25,7 @@ def writer_node(state: WritingAgentState):
         plan=state.get("plan", {}),
         review_feedback=state["review_feedback"],
         human_feedback=state["human_feedback"],
+        persona=state.get("persona", "default"),   # Phase 18
     )
     return {"draft": draft}
 
@@ -37,7 +39,8 @@ def build_writing_agent():
 
 
 def run_writing_agent(topic: str, research: str, hook: str, plan: dict = {},
-                      review_feedback: str = "", human_feedback: str = "") -> dict:
+                      review_feedback: str = "", human_feedback: str = "",
+                      persona: str = "default") -> dict:
     agent = build_writing_agent()
     result = agent.invoke({
         "topic": topic,
@@ -46,6 +49,7 @@ def run_writing_agent(topic: str, research: str, hook: str, plan: dict = {},
         "plan": plan,
         "review_feedback": review_feedback,
         "human_feedback": human_feedback,
+        "persona": persona,   # Phase 18
         "draft": "",
     })
     return {"draft": result["draft"]}

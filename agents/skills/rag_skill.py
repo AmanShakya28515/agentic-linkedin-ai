@@ -10,7 +10,9 @@ import chromadb
 #   STORE:    approved post / viral example → vector embedding → ChromaDB
 #   RETRIEVE: new topic → find similar posts → inject style into writing prompt
 
-DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "chroma_db")
+# Phase 23 — Railway: use DATA_DIR env var so ChromaDB persists on Railway volume
+import django.conf
+DB_PATH = os.path.join(getattr(django.conf.settings, 'DATA_DIR', os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..")), "chroma_db")
 
 client = chromadb.PersistentClient(path=DB_PATH)
 collection = client.get_or_create_collection(name="linkedin_posts")
@@ -153,10 +155,42 @@ def retrieve_similar_posts(topic: str, n_results: int = 2) -> str:
                 posts_context += f"{label} (topic: {meta['topic']}):\n{post}\n\n"
             context_parts.append(posts_context.strip())
 
-    # Phase 16 — also search uploaded documents
-    from .document_skill import retrieve_from_documents
-    doc_context = retrieve_from_documents(topic)
-    if doc_context:
-        context_parts.append(doc_context)
+    # Phase 16 — flat retrieve across all uploaded docs (replaced by Phase 17)
+    # from .document_skill import retrieve_from_documents
+    # doc_context = retrieve_from_documents(topic)
+    # if doc_context:
+    #     context_parts.append(doc_context)
+
+    # Phase 17 — org context retrieved separately via retrieve_org_context() below
+    # keeping retrieve_similar_posts for STYLE ONLY (viral examples + user posts)
 
     return "\n\n".join(context_parts) if context_parts else ""
+
+
+def retrieve_org_context(topic: str) -> tuple:
+    """Phase 17 — run namespace router, retrieve from relevant org collections.
+    Returns (org_context_str, selected_namespaces_list).
+    Called by supervisor_flow and views before deciding whether to run web research.
+
+    Fix: brand_guidelines alone should NOT trigger the org-priority rule.
+    brand_guidelines is always selected by the router (for brand checking),
+    but it should only be used to CHECK the draft — not to replace web research.
+    Web research is skipped only when substantive org knowledge exists
+    (company_profile, products, team_personas, audience, or campaigns)."""
+    from .namespace_router_skill import route_namespaces
+    from .document_skill import retrieve_from_namespace
+
+    namespaces = route_namespaces(topic)
+    org_context = retrieve_from_namespace(topic, namespaces)
+
+    # Only treat as "org topic" if namespaces beyond brand_guidelines returned data.
+    # If the only match is brand_guidelines, return empty so web research still runs.
+    substantive_namespaces = [n for n in namespaces if n != "brand_guidelines"]
+    if substantive_namespaces:
+        substantive_context = retrieve_from_namespace(topic, substantive_namespaces)
+    else:
+        substantive_context = ""
+
+    # Return substantive context for the research decision,
+    # but keep full org_context (including brand_guidelines) available via namespaces.
+    return substantive_context, namespaces

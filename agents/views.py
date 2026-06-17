@@ -10,7 +10,7 @@ from .skills.hook_skill import hook_skill                  # Phase 6
 from .skills.writing_skill import writing_skill_stream     # Phase 6
 from .supervisor_flow import start_supervisor_flow, resume_supervisor_flow, start_supervisor_flow_with_draft  # Phase 7
 from .sub_agents.campaign_agent import run_campaign_agent          # Phase 15
-from .skills.document_skill import store_document, store_plain_text, list_documents  # Phase 16
+from .skills.document_skill import store_document, store_plain_text, list_documents_by_namespace  # Phase 16/17
 
 
 # Phase 3 - Chat UI: serves the chat interface page
@@ -159,13 +159,16 @@ def message(request):
     if not user_message:
         return JsonResponse({"error": "message is required"}, status=400)
 
+    # Phase 18 — read persona from request (defaults to "default" if not sent)
+    persona = data.get("persona", "default")
+
     # ── No active workflow → this must be a new topic ──────────────────────
     # Phase 4-6: start_agent_flow(user_message, new_thread_id)
     # Phase 7:   start_supervisor_flow — delegates to sub-agents internally
     if not thread_id:
         new_thread_id = str(uuid.uuid4())
         try:
-            result = start_supervisor_flow(user_message, new_thread_id)
+            result = start_supervisor_flow(user_message, new_thread_id, persona)
         except Exception as e:
             return JsonResponse({"error": str(e)}, status=500)
 
@@ -183,7 +186,7 @@ def message(request):
     if intent == "new_topic":
         new_thread_id = str(uuid.uuid4())
         try:
-            result = start_supervisor_flow(user_message, new_thread_id)
+            result = start_supervisor_flow(user_message, new_thread_id, persona)
         except Exception as e:
             return JsonResponse({"error": str(e)}, status=500)
 
@@ -242,12 +245,20 @@ def message_stream(request):
     if not topic:
         return JsonResponse({"error": "message is required"}, status=400)
 
+    persona = data.get("persona", "default")   # Phase 18
     thread_id = str(uuid.uuid4())
 
     def event_stream():
-        yield f'data: {json.dumps({"type": "status", "text": "🔍 Researching your topic..."})}\n\n'
+        # Phase 17 — check org namespaces before hitting the web
+        from .skills.rag_skill import retrieve_org_context
+        org_context, _ = retrieve_org_context(topic)
 
-        research = research_skill(topic)
+        if org_context:
+            yield f'data: {json.dumps({"type": "status", "text": "🏢 Using organisational knowledge..."})}\n\n'
+            research = org_context
+        else:
+            yield f'data: {json.dumps({"type": "status", "text": "🔍 Researching your topic..."})}\n\n'
+            research = research_skill(topic)
 
         yield f'data: {json.dumps({"type": "status", "text": "🪝 Generating hooks..."})}\n\n'
 
@@ -257,15 +268,34 @@ def message_stream(request):
 
         # Stream writer tokens to browser word by word
         draft_tokens = []
-        for token in writing_skill_stream(topic=topic, research=research, hook=hook):
+        for token in writing_skill_stream(topic=topic, research=research, hook=hook, persona=persona):
             draft_tokens.append(token)
             yield f'data: {json.dumps({"type": "token", "text": token})}\n\n'
 
         draft = "".join(draft_tokens)
 
+        # Phase 19 — brand enforcer on streaming path
+        # Streaming already sent the draft tokens to the browser.
+        # Now run the enforcer silently — if violations found, correct the draft
+        # before saving to supervisor so feedback/approval use the clean version.
+        from .skills.brand_enforcer_skill import check_brand_compliance
+        from .skills.document_skill import retrieve_from_namespace
+        from .skills.writing_skill import writing_skill
+
+        brand_guidelines = retrieve_from_namespace(topic, ["brand_guidelines"])
+        brand_result = check_brand_compliance(draft, brand_guidelines)
+
+        if not brand_result["passed"]:
+            yield f'data: {json.dumps({"type": "status", "text": "⚠️ Brand check failed — rewriting..."})}\n\n'
+            draft = writing_skill(
+                topic=topic, research=research, hook=hook, persona=persona,
+                review_feedback=f"Brand compliance issues to fix:\n{brand_result['rewrite_instruction']}",
+            )
+            yield f'data: {json.dumps({"type": "corrected_draft", "text": draft})}\n\n'
+
         # Phase 6 original: start_agent_flow_with_draft (agent_flow MemorySaver)
         # Phase 7 fix: use supervisor MemorySaver so feedback/approval find the checkpoint
-        start_supervisor_flow_with_draft(topic, research, hook, draft, thread_id)
+        start_supervisor_flow_with_draft(topic, research, hook, draft, thread_id, persona)
 
         yield f'data: {json.dumps({"type": "done", "thread_id": thread_id})}\n\n'
 
@@ -308,12 +338,14 @@ def campaign(request):
 # PHASE 16 — Document Upload to RAG
 # Supports: PDF, TXT, XLSX — text extracted → chunked → stored in ChromaDB
 # =============================================================================
-ALLOWED_EXTENSIONS = (".pdf", ".txt", ".xlsx", ".xls")
+# Phase 21 — added CSV and Excel support
+ALLOWED_EXTENSIONS = (".pdf", ".txt", ".csv", ".xlsx", ".xls")
 
 @csrf_exempt
 def upload_document(request):
     if request.method == "GET":
-        return JsonResponse({"documents": list_documents()})
+        # Phase 17 — return documents grouped by namespace instead of a flat list
+        return JsonResponse({"namespaces": list_documents_by_namespace()})
 
     if request.method != "POST":
         return JsonResponse({"error": "Only POST allowed"}, status=405)
@@ -327,8 +359,11 @@ def upload_document(request):
 
     if ext not in ALLOWED_EXTENSIONS:
         return JsonResponse({
-            "error": f"Unsupported file type. Allowed: PDF, TXT, XLSX"
+            "error": f"Unsupported file type. Allowed: PDF, TXT, CSV, XLSX"
         }, status=400)
+
+    # Phase 17 — accept doc_type from form field to route into correct namespace
+    doc_type = request.POST.get("doc_type", "company_profile")
 
     import tempfile, os as _os
     with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as tmp:
@@ -337,15 +372,16 @@ def upload_document(request):
         tmp_path = tmp.name
 
     try:
-        num_chunks = store_document(tmp_path, filename)
+        num_chunks = store_document(tmp_path, filename, doc_type)
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
     finally:
         _os.unlink(tmp_path)
 
     return JsonResponse({
-        "message": f"✅ '{filename}' uploaded — {num_chunks} chunks added to knowledge base.",
+        "message": f"✅ '{filename}' uploaded to [{doc_type}] — {num_chunks} chunks added.",
         "filename": filename,
+        "doc_type": doc_type,
         "chunks": num_chunks,
     })
 
@@ -368,12 +404,16 @@ def remember_this(request):
     if not text:
         return JsonResponse({"error": "text is required"}, status=400)
 
+    # Phase 17 — accept doc_type to route into the correct namespace
+    doc_type = data.get("doc_type", "company_profile")
+
     try:
-        num_chunks = store_plain_text(text, label="user_note")
+        num_chunks = store_plain_text(text, label="user_note", doc_type=doc_type)
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
 
     return JsonResponse({
-        "message": f"✅ Remembered — {num_chunks} chunks added to knowledge base.",
+        "message": f"✅ Remembered — {num_chunks} chunks added to [{doc_type}].",
+        "doc_type": doc_type,
         "chunks": num_chunks,
     })

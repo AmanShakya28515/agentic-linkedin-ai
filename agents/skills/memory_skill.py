@@ -6,7 +6,9 @@ from .llm_skill import llm_skill
 # Stores user preferences and past topics in a JSON file that persists across sessions.
 # 4 steps: EXTRACT → STORE → RETRIEVE → INJECT (into writing prompt)
 
-MEMORY_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "user_memory.json")
+# Phase 23 — Railway: use DATA_DIR env var so user_memory.json persists on Railway volume
+import django.conf
+MEMORY_FILE = os.path.join(getattr(django.conf.settings, 'DATA_DIR', os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..")), "user_memory.json")
 
 
 def read_memory() -> dict:
