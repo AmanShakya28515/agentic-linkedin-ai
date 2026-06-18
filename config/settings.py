@@ -26,7 +26,7 @@ DEBUG = os.environ.get('DEBUG', 'True') == 'True'
 
 ALLOWED_HOSTS = os.environ.get(
     'ALLOWED_HOSTS',
-    'localhost,127.0.0.1,.ngrok-free.dev,.ngrok-free.app'
+    'localhost,127.0.0.1,.ngrok-free.dev,.ngrok-free.app,.railway.app,healthcheck.railway.app'
 ).split(',')
 
 CSRF_TRUSTED_ORIGINS = os.environ.get('CSRF_TRUSTED_ORIGINS', '').split(',') if os.environ.get('CSRF_TRUSTED_ORIGINS') else []
