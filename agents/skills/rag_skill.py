@@ -11,8 +11,8 @@ import chromadb
 #   RETRIEVE: new topic → find similar posts → inject style into writing prompt
 
 # Phase 23 — Railway: use DATA_DIR env var so ChromaDB persists on Railway volume
-import django.conf
-DB_PATH = os.path.join(getattr(django.conf.settings, 'DATA_DIR', os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..")), "chroma_db")
+_BASE = os.environ.get('DATA_DIR', os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
+DB_PATH = os.path.join(_BASE, "chroma_db")
 
 client = chromadb.PersistentClient(path=DB_PATH)
 collection = client.get_or_create_collection(name="linkedin_posts")

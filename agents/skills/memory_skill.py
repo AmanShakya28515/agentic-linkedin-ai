@@ -7,8 +7,8 @@ from .llm_skill import llm_skill
 # 4 steps: EXTRACT → STORE → RETRIEVE → INJECT (into writing prompt)
 
 # Phase 23 — Railway: use DATA_DIR env var so user_memory.json persists on Railway volume
-import django.conf
-MEMORY_FILE = os.path.join(getattr(django.conf.settings, 'DATA_DIR', os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..")), "user_memory.json")
+_BASE = os.environ.get('DATA_DIR', os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
+MEMORY_FILE = os.path.join(_BASE, "user_memory.json")
 
 
 def read_memory() -> dict:

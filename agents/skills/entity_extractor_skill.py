@@ -9,8 +9,8 @@ from .llm_skill import llm_skill
 # The namespace router reads this file at runtime — no hardcoding needed per client.
 
 # Phase 23 — Railway: use DATA_DIR env var so company_config.json persists on Railway volume
-import django.conf
-CONFIG_PATH = os.path.join(getattr(django.conf.settings, 'DATA_DIR', os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..")), "company_config.json")
+_BASE = os.environ.get('DATA_DIR', os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
+CONFIG_PATH = os.path.join(_BASE, "company_config.json")
 
 
 def load_config() -> dict:
